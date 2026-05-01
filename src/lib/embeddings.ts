@@ -4,11 +4,16 @@ import { Document } from "@langchain/core/documents";
 import { ChromaClient } from "chromadb";
 
 function getChromaClient() {
-  let urlStr = process.env.CHROMA_URL || "http://localhost:8000";
+  const rawUrl = process.env.CHROMA_URL;
+  console.log("🛠️ [DEBUG] Raw process.env.CHROMA_URL:", rawUrl);
+
+  let urlStr = rawUrl || "http://localhost:8000";
+  console.log("🛠️ [DEBUG] Fallback URL being used:", urlStr);
   
   // Auto-fix missing protocol
   if (!urlStr.startsWith("http://") && !urlStr.startsWith("https://")) {
     urlStr = "https://" + urlStr;
+    console.log("🛠️ [DEBUG] Auto-added protocol, new URL:", urlStr);
   }
 
   const parsed = new URL(urlStr);
@@ -16,9 +21,11 @@ function getChromaClient() {
   
   // If it's localhost or an explicit port is provided, path works fine
   if (parsed.hostname === "localhost" || parsed.port !== "") {
+    console.log("🛠️ [DEBUG] Using default path connection to:", urlStr);
     return new ChromaClient({ path: urlStr });
   }
 
+  console.log("🛠️ [DEBUG] Using explicit host/port connection to host:", parsed.hostname);
   // Workaround for chromadb bug: explicitly pass empty port when no port is provided
   return new ChromaClient({ 
     host: parsed.hostname, 
