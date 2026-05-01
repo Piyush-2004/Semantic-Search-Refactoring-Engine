@@ -3,18 +3,28 @@ import { Chroma } from "@langchain/community/vectorstores/chroma";
 import { Document } from "@langchain/core/documents";
 import { ChromaClient } from "chromadb";
 
-// Helper to fix the chromadb URL parsing bug
 function getChromaClient() {
-  const url = process.env.CHROMA_URL || "http://localhost:8000";
+  let urlStr = process.env.CHROMA_URL || "http://localhost:8000";
   
-  if (url.startsWith("https://")) {
-    const host = url.replace("https://", "").split("/")[0];
-    // Workaround: passing empty string for port prevents chromadb from appending ":0"
-    return new ChromaClient({ host: host, port: "" as any, ssl: true });
-  } else {
-    // Works fine for http://localhost:8000
-    return new ChromaClient({ path: url });
+  // Auto-fix missing protocol
+  if (!urlStr.startsWith("http://") && !urlStr.startsWith("https://")) {
+    urlStr = "https://" + urlStr;
   }
+
+  const parsed = new URL(urlStr);
+  const isHttps = parsed.protocol === "https:";
+  
+  // If it's localhost or an explicit port is provided, path works fine
+  if (parsed.hostname === "localhost" || parsed.port !== "") {
+    return new ChromaClient({ path: urlStr });
+  }
+
+  // Workaround for chromadb bug: explicitly pass empty port when no port is provided
+  return new ChromaClient({ 
+    host: parsed.hostname, 
+    port: "" as any, 
+    ssl: isHttps 
+  });
 }
 
 export async function storeInChromaDB(docs: Document[], collectionName: string = "codebase-gemini") {
